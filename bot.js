@@ -16,6 +16,10 @@ const client = new Client({
     partials: [Partials.message, Partials.channel, Partials.Reaction] 
 })
 
+//setup other file functions
+const AutoVC = require('./AutoVC');
+const ReactRole = require('./ReactRole');
+
 //variabels qui sont importantes
 
 const BotId = '1051133283280355369';
@@ -138,200 +142,25 @@ client.on('messageCreate', async message => {
     }
 });
 
-//detect quand un utilisateur rejoint un sallon vocal
+//AutoVC Feature
+//Detect when the status of a voice channel is modified
 client.on('voiceStateUpdate',  async (oldstate, newstate) =>{
+//TODO verify that the function is turned on
 
-//ces 2 variables tien en memoire l'id du serveur courrant du old et new state pour verification plus tard
-var listIdServCourrantOld = await findIdServeurDuVocalCourrant(oldstate);
-var listIdServCourrantNew = await findIdServeurDuVocalCourrant(newstate);
+    //Goes into the AutoVC folder where the code is.
+    AutoVC.UseAutoVC(oldstate, newstate, listeDeServeurs, client, listeSupprimerBlackListe);
 
-    if(newstate.channelId === null){//utilisateur a quitter le channel
-        try { 
-                await supprimerChannel(oldstate, listIdServCourrantOld,client);
-
-    } catch (error) {console.log("Erreur quand user quite channel"); return;}
-
-    }else if(oldstate.channelId === null){//utilisateur a join le channel
-        try { 
-                creerChannel(newstate, listIdServCourrantNew);
-
-    } catch (error) {console.log("Erreur quand user join channel"); return;}
-
-    }else{//utilisateur a changer de channel
-        try { 
-
-            supprimerChannel(oldstate, listIdServCourrantOld, client);
-            creerChannel(newstate, listIdServCourrantNew);
-            
-        } catch (error) {console.log("Erreur quand usager change de channel"); return;} 
-    }
 });
 
-async function findIdServeurDuVocalCourrant(chanvoc){
-    //serveurCourant = client.guilds.cache.find(Guild => Guild.id === chanvoc.Guild.id)
-    resulta = await listeDeServeurs.find(listeDeServeurs => listeDeServeurs.serveurId == chanvoc.guild.id);
-    return resulta;
-}
-async function creer(chanel,categorieid, name){
-    //créer un chanel vocal
-    if(categorieid == 'rien')
-    {
-        var chan = await newstate.guild.channels.create({ name: 'Channel Vocal de '+ name })
-        .then()
-        .catch(console.error);
-        return chan
-    }
-    if(categorieid != 'rien')
-    {
-        var chan = await chanel.create({ name: 'Channel Vocal de '+ name, parent : categorieid , type: 2})
-        .then()
-        .catch(console.error);
-        return chan
-    }
-    
-
-}
-async function creerChannel(newstate0, listidservcourrant0){
-
-    if(listidservcourrant0.channelvocalId === null || listidservcourrant0.channelvocalId === undefined)
-        {console.log("il y a pas de salon vocal nommer correctement dans le serveur") }
-    else {
-    //check si le channel vocal belle et bien dans le serveur et si oui, créer un nouveau channel et transpher l'utilisteur dedans
-        if(newstate0.channelId == listidservcourrant0.channelvocalId.id){
-            //si il y a pas de parent (categorie) il change la variable a rien
-            try {var categoriechanid = newstate0.channel.parentId;} 
-            catch (error) { var categoriechanid = 'rien';}
-
-            //cree le chanel
-            var chan = await creer(newstate0.guild.channels, categoriechanid ,newstate0.member.user.username);
-                
-            //trouver lutilisateur et l'envoie
-            const member = newstate0.member;
-
-            //déplacer l'utilisateur dans le channel  
-            await member.voice.setChannel(chan.id).catch(e => console.log('utilisateur na pas pu etre bouger'));
-        }
-    }
-}
-async function supprimerChannel(oldstate0, listidservcourrant0, client0){
-
-    if(listidservcourrant0.channelvocalId === null || listidservcourrant0.channelvocalId === undefined)
-        {console.log("il y a pas de salon vocal nommer correctement dans le serveur") }
-    else {
-
-    //Sassure que le channel a deleter ne fait pas partie de la liste listeSupprimerBlackListe a deleter
-    var channelBlackListed = false;
-    listeSupprimerBlackListe.forEach(element => {
-        if(element == oldstate0.channelId)
-            {channelBlackListed = true;}
-    });
-    if(channelBlackListed == true){
-        return;
-    }
-
-    //sassure que le channel a deleter nest pas le channel de base
-        if(oldstate0.channelId != listidservcourrant0.channelvocalId.id){
-            //s'assure que le cahannel nest pas vide avent de le delete
-            var aaa = client0.channels.cache.find(channel=> channel.id === oldstate0.channelId)
-            let count = aaa.members.size;
-            if(count === 0){
-                try {
-                    aaa.delete();
-                } catch (error) {console.log(error)}
-            }
-        }
-    }
-}
-
-//TODO make sure the bot dosent react to him self
-
-//detect quand un message specifique a une reaction d'ajouter ou retirer
+//ReactRole Feature
+//Regarde tout les packets
 client.on('raw', async packet => {
-    switch (packet.t) {
-            case 'MESSAGE_REACTION_ADD':
-                if (packet.d.user_id == BotId) {return;}
-                var AOR = true;
-                var messageId = await setRoleViaEmojiInfo(packet);
-                await actRoleViaEmoji(AOR,messageId,packet);
-                break;
-            case 'MESSAGE_REACTION_REMOVE':
-                if (packet.d.user_id == BotId) {return;}
-                var AOR = false;
-                var messageId = await setRoleViaEmojiInfo(packet);
-                await actRoleViaEmoji(AOR,messageId,packet);
-                break;
-            default:
-                return;
-        }
-   //todo enlever le consol log
-    console.log(packet.t);
-    return;
+//TODO verify that the function is turned on
+
+    ReactRole.UseReactRole(packet, listeChannelIdReactionToRole, BotId, client);
+
 })  
-//TODO l'ajoute dans les 2 fonctions ne fonctionne pas
-async function ajoutRetirRoleViaEmoji(roleId, userId, serverId, AORRR) {
-    var guildddd = client.guilds.cache.get(serverId)
-    var memb = guildddd.members.cache.get(userId);
-    var rolee = guildddd.roles.cache.get(roleId);
 
-    if (AORRR == true)
-    {memb.roles.add(rolee);}
-    else if (AORRR == false)
-    {memb.roles.remove(rolee);}
-
-}
-async function setRoleViaEmojiInfo(packettt) {
-    var temppp;
-    listeChannelIdReactionToRole.forEach(e => {
-            if (e == packettt.d.message_id) {
-                temppp = e;
-            }
-        });
-        return temppp;
-}
-//todo presentement hardcoder le check du quel channel la requete provien. il faut le mettre modulaire.
-//TODO fair une liste de model ayant serveur id, role id et nom du emoji et guild id pour faire seuleument un appelk et rendre lajout automatique modulaire
-async function actRoleViaEmoji(AORR, messageIdd, packett) {
-
-    switch (packett.d.message_id) {
-        case listeChannelIdReactionToRole[0]:
-            //un aute switch case pour déterminer quell et l'emoji et role ajouter ou enlever
-            switch (packett.d.emoji.name) {
-                case '😄':
-                    await ajoutRetirRoleViaEmoji('1129981455355883620', packett.d.user_id, packett.d.guild_id, AORR);
-                    
-                    break;
-                case '😂':
-                    await ajoutRetirRoleViaEmoji('1129981315979153408', packett.d.user_id, packett.d.guild_id, AORR);
-                    
-                    break;
-                case '😘':
-                    await ajoutRetirRoleViaEmoji('1129981391849926697', packett.d.user_id, packett.d.guild_id, AORR);
-                    
-                    break;
-                case 'roue':
-                    await ajoutRetirRoleViaEmoji('1130114441875300482', packett.d.user_id, packett.d.guild_id, AORR);
-                    
-                    break;
-            
-                default:
-                    console.log("Error: RoleViaEmoji/actRoleViaEmoji -> Emoji non reconnue");
-                    break;
-            }
-            
-            break;
-        case listeChannelIdReactionToRole[1]:
-            console.log("Error: RoleViaEmoji/actRoleViaEmoji -> channelId pas censer arriver ici (1)");
-            break;
-        case listeChannelIdReactionToRole[2]:
-            console.log("Error: RoleViaEmoji/actRoleViaEmoji -> channelId pas censer arriver ici (2)");
-            break;
-    
-        default:
-            console.log("Error: RoleViaEmoji/actRoleViaEmoji -> channelId pas censer arriver ici (1) channelId correspond a aucun channel dans la liste stocker");
-            break;
-    }
-   
-}
 
 client.login(process.env.DISCORD_TOKEN)
 
