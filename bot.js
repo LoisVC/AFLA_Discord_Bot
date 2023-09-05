@@ -11,14 +11,17 @@ TODO, choses a améliorer
 */
 
 //les permissions de ce que le bot a les droit de faire.(permissions)
+var GIT = GatewayIntentBits
 const client = new Client({
-    intents : 32767, 
+    intents : [GIT.Guilds, GIT.GuildMembers, GIT.GuildEmojisAndStickers, GIT.GuildVoiceStates, GIT.GuildMessages, GIT.GuildMessageReactions, GIT.GuildMessageReactions, GIT.MessageContent], 
     partials: [Partials.message, Partials.channel, Partials.Reaction] 
 })
 
 //setup other file functions
 const AutoVC = require('./AutoVC');
 const ReactRole = require('./ReactRole');
+const HelpMessage = require('./HelpMSG');
+const MultiServerAnnoucement = require('./MultiServAnnoucement');
 
 //variabels qui sont importantes
 
@@ -83,6 +86,7 @@ async function initialiseReactionListe() {
 
 //Check si bot fontionne en envoyant un log et inisialise le bot
 client.on('ready', () => {
+//TODO Remove when the app is deployed
     console.log('Bot is Running');
     
 
@@ -90,55 +94,31 @@ client.on('ready', () => {
     //client.channels.fetch(listeChannelIdReactionToRole[0],{cache: false})
 });
 
-//check a chaque message envoyer
+//HelpMessage and MultiServerAnnoucement Feature
+//Detect messages and decide witch feature to call
 client.on('messageCreate', async message => {
 
-    //fait attention de ne pas prendre en compte ces propre messages (message du bot)
+    //make sure to not react to the bot's message
     if(message.author.id === BotId)
     { return;}
 
-    //verifie si un message est écrit dans le channel du serveur principale et le renvoit dans le channel correcpondant dans autres serveurs
+    //check where the message is comming from and redirect to the correct function
     switch (message.channelId) {
-        //verifie les exportatons des messages venant du serv principale dans les deux premiers case. le troisieme, gere les commande du serv principale
+    
         case listeDeServeurs[0].channelAdminMessageId.id:
-            //si un message a ete écrit dans le channel du serveur principale, renvoir le meme message dans les channel correspondant de tout les serveurs
-            for (let index = 0; index < listeDeServeurs.length; index++) {
-
-                var sendto = client.channels.cache.find(channel => channel.id === listeDeServeurs[index].channelAdminMessageId.id);
-                await sendto.send(message.content);
-            }
+            //calling to HelpMessage Feature (1 = Admin)
+            MultiServerAnnoucement.UseMultiServAnnoucement(1, message, client, listeDeServeurs);
             break;
+
         case listeDeServeurs[0].channelJoueurMessageId.id:
-            //si un message a ete écrit dans le channel du serveur principale, renvoir le meme message dans les channel correspondant de tout les serveurs
-            for (let index = 0; index < listeDeServeurs.length; index++) {
-
-                var sendto = client.channels.cache.find(channel => channel.id === listeDeServeurs[index].channelJoueurMessageId.id);
-                await sendto.send(message.content);
-            }
+            //calling to HelpMessage Feature (0 = User)
+            MultiServerAnnoucement.UseMultiServAnnoucement(0, message, client, listeDeServeurs);
             break;
+
         case listeDeServeurs[0].channelAdminCommandeId.id:
-            //si un message a ete écrit dans le channel commande du serveur principale agit en conséquance de la requete
-            switch (message.content.toLocaleLowerCase()) {
-                case 'help':
-                    var sendto = client.channels.cache.find(channel => channel.id === listeDeServeurs[0].channelAdminCommandeId.id);
-                    await sendto.send("Les commandes présentement programmées sont: \n **-Help** \t (permet d'afficher ce message) \n **-Stop** \t ***BotStop*** et ***StopBot*** fonctionne aussi (arrete le bot, redemarage manuellement du bot necessaire)");
-                    
-                    break;
-                case 'botstop': StopBot();
-                    break;
-                case 'stop': StopBot();
-                    break;
-                case 'stopbot': StopBot();
-                    break;
-
-                default:
-                    var sendto = client.channels.cache.find(channel => channel.id === listeDeServeurs[0].channelAdminCommandeId.id);
-                    await sendto.send("Aucune commande correspondant. \nTapez **help** pour avoir de l'aide");
-                        break;
-            }
-
+            //calling to HelpMessage Feature
+            HelpMessage.UseHelpMSG(message, client, listeDeServeurs);
             break;
-        
     }
 });
 
@@ -164,7 +144,7 @@ client.on('raw', async packet => {
 
 client.login(process.env.DISCORD_TOKEN)
 
-//pour fermer le bot, il faut faire les 2 touche "ctrl" et "c" en mem temps)
+//pour fermer le bot, il faut faire les 2 touche "ctrl" et "c" en meme temps)
 
 //Ferme le bot automatiquement apres 30 sec
 //setTimeout(StopBot, 30000)
